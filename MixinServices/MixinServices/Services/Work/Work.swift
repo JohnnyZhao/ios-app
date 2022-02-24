@@ -92,12 +92,11 @@ extension Work {
             lock.lock()
             switch (_state, newValue) {
             case (.preparing, .ready), (.ready, .executing), (.ready, .finished), (.executing, .finished):
-                break
+                _state = newValue
+                stateMonitor?.work(self, stateDidChangeTo: newValue)
             default:
                 assertionFailure("Work's state shouldn't be set to \(newValue) from \(_state)")
             }
-            _state = newValue
-            stateMonitor?.work(self, stateDidChangeTo: newValue)
             lock.unlock()
         }
         get {

@@ -41,7 +41,7 @@ public class WorkManager {
                 }
                 do {
                     let work = try Work.init(id: persisted.id, context: persisted.context)
-                    self.addWork(work)
+                    self.addWork(work, persistIfAvailable: false)
                 } catch {
                     Logger.general.error(category: "WorkManager", message: "[\(self.label)] Failed to init \(persisted)")
                 }
@@ -51,34 +51,7 @@ public class WorkManager {
     }
     
     public func addWork(_ work: Work) {
-        guard work.setStateMonitor(self) else {
-            assertionFailure("Adding work to multiple manager is not supported")
-            return
-        }
-        lock.lock()
-        defer {
-            lock.unlock()
-        }
-        let isAlreadyScheduled = executingWorks.contains(work) || pendingWorks.contains(work)
-        guard !isAlreadyScheduled else {
-            Logger.general.warn(category: "WorkManager", message: "[\(label)] Add a duplicated work: \(work)")
-            return
-        }
-        if let work = work as? PersistableWork {
-            let persisted = PersistedWork(id: work.id,
-                                          type: type(of: work).typeIdentifier,
-                                          context: work.context,
-                                          priority: work.priority)
-            WorkDAO.shared.save(work: persisted)
-        }
-        if work.isReady, executingWorks.count < maxConcurrentWorkCount {
-            Logger.general.debug(category: "WorkManager", message: "[\(label)] Execute \(work) because of adding to queue")
-            executingWorks.insert(work)
-            dispatchQueue.async(execute: work.start)
-        } else {
-            Logger.general.debug(category: "WorkManager", message: "[\(label)] Pending \(work)")
-            pendingWorks.append(work)
-        }
+        addWork(work, persistIfAvailable: true)
     }
     
     public func cancelAllWorks() {
@@ -93,6 +66,38 @@ public class WorkManager {
         }
         Logger.general.debug(category: "WorkManager", message: "[\(label)] Cancel \(id)")
         work.cancel()
+    }
+    
+    private func addWork(_ work: Work, persistIfAvailable: Bool) {
+        guard work.setStateMonitor(self) else {
+            assertionFailure("Adding work to multiple manager is not supported")
+            return
+        }
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
+        let isAlreadyScheduled = executingWorks.contains(work) || pendingWorks.contains(work)
+        guard !isAlreadyScheduled else {
+            Logger.general.warn(category: "WorkManager", message: "[\(label)] Add a duplicated work: \(work)")
+            return
+        }
+        if persistIfAvailable, let work = work as? PersistableWork {
+            let persisted = PersistedWork(id: work.id,
+                                          type: type(of: work).typeIdentifier,
+                                          context: work.context,
+                                          priority: work.priority)
+            WorkDAO.shared.save(work: persisted,
+                                completion: work.persistenceDidComplete)
+        }
+        if work.isReady, executingWorks.count < maxConcurrentWorkCount {
+            Logger.general.debug(category: "WorkManager", message: "[\(label)] Execute \(work) because of adding to queue")
+            executingWorks.insert(work)
+            dispatchQueue.async(execute: work.start)
+        } else {
+            Logger.general.debug(category: "WorkManager", message: "[\(label)] Pending \(work)")
+            pendingWorks.append(work)
+        }
     }
     
 }
@@ -124,6 +129,9 @@ extension WorkManager: WorkStateMonitor {
                 WorkDAO.shared.delete(id: work.id)
             }
             lock.lock()
+            pendingWorks.removeAll { pendingWork in
+                pendingWork == work
+            }
             executingWorks.remove(work)
             if executingWorks.count < maxConcurrentWorkCount, let index = pendingWorks.firstIndex(where: { $0.isReady }) {
                 let nextWork = pendingWorks.remove(at: index)

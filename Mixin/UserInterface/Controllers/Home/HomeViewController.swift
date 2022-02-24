@@ -145,7 +145,7 @@ class HomeViewController: UIViewController {
             if AppGroupUserDefaults.User.hasRecoverMedia {
                 ConcurrentJobQueue.shared.addJob(job: RecoverMediaJob())
             }
-            WorkManager.general.wakeUpPersistedWorks(with: [AttachmentCleaningWork.self]) { manager in
+            WorkManager.general.wakeUpPersistedWorks(with: [AttachmentCleaningWork.self, DeleteMessageWork.self]) { manager in
                 manager.addWork(AttachmentCleaningWork())
             }
             initializeFTSIfNeeded()

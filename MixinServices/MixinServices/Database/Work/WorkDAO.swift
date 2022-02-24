@@ -9,8 +9,13 @@ public class WorkDAO {
         WorkDatabase.current
     }
     
-    public func save(work: PersistedWork) {
-        db.save(work)
+    public func save(work: PersistedWork, completion: @escaping () -> Void) {
+        db.write { db in
+            try work.save(db)
+            db.afterNextTransactionCommit { _ in
+                completion()
+            }
+        }
     }
     
     public func works(with types: [String]) -> [PersistedWork] {
