@@ -91,7 +91,7 @@ public class WorkManager {
                                 completion: work.persistenceDidComplete)
         }
         if work.isReady, executingWorks.count < maxConcurrentWorkCount {
-            Logger.general.debug(category: "WorkManager", message: "[\(label)] Execute \(work) because of adding to queue")
+            Logger.general.debug(category: "WorkManager", message: "[\(label)] Start \(work) because of adding to queue")
             executingWorks.insert(work)
             dispatchQueue.async(execute: work.start)
         } else {

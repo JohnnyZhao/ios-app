@@ -57,8 +57,7 @@ public final class DeleteMessageWork: Work {
         super.init(id: "delete-message-\(messageId)", state: .ready)
     }
     
-    override public func start() {
-        super.start()
+    public override func main() throws {
         if !hasDatabaseRecordDeleted {
             MessageDAO.shared.delete(id: messageId, conversationId: conversationId)
         }
@@ -79,7 +78,6 @@ public final class DeleteMessageWork: Work {
         case .none:
             break
         }
-        state = .finished(.success)
     }
     
 }

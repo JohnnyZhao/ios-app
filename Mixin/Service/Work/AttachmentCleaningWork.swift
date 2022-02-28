@@ -16,10 +16,8 @@ final class AttachmentCleaningWork: Work {
         super.init(id: "attachment_clean", state: .ready)
     }
     
-    override func start() {
-        super.start()
+    override func main() throws {
         guard -AppGroupUserDefaults.User.lastAttachmentCleanUpDate.timeIntervalSinceNow >= 7 * .oneDay else {
-            state = .finished(.cancelled)
             return
         }
         
@@ -58,7 +56,6 @@ final class AttachmentCleaningWork: Work {
         }
 
         AppGroupUserDefaults.User.lastAttachmentCleanUpDate = Date()
-        state = .finished(.success)
     }
     
 }

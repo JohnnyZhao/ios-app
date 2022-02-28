@@ -32,8 +32,20 @@ open class Work {
         }
     }
     
+    // Override this if you want precisely control of state
     open func start() {
         state = .executing
+        do {
+            try main()
+            state = .finished(.success)
+        } catch {
+            state = .finished(.failed(error))
+        }
+    }
+    
+    // Override this for straight synchronous works
+    open func main() throws {
+        
     }
     
     open func cancel() {
