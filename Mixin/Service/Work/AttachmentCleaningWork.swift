@@ -3,8 +3,6 @@ import MixinServices
 
 final class AttachmentCleaningWork: Work {
     
-    private let finishedCategoriesLock = NSRecursiveLock()
-    
     private var finishedCategories: Set<AttachmentContainer.Category>
     
     convenience init() {
@@ -20,13 +18,9 @@ final class AttachmentCleaningWork: Work {
         guard -AppGroupUserDefaults.User.lastAttachmentCleanUpDate.timeIntervalSinceNow >= 7 * .oneDay else {
             return
         }
-        
-        finishedCategoriesLock.lock()
         let categories: [AttachmentContainer.Category] = [.photos, .audios, .files, .videos].filter { category in
             !finishedCategories.contains(category)
         }
-        finishedCategoriesLock.unlock()
-        
         for category in categories {
             Logger.general.debug(category: "AttachmentCleaningWork", message: "Cleaning \(category)")
             let path = AttachmentContainer.url(for: category, filename: nil).path
@@ -48,13 +42,10 @@ final class AttachmentCleaningWork: Work {
                     try? FileManager.default.removeItem(at: url)
                 }
             }
-            finishedCategoriesLock.lock()
             finishedCategories.insert(category)
             updatePersistedContext()
-            finishedCategoriesLock.unlock()
             Logger.general.debug(category: "AttachmentCleaningWork", message: "\(category) cleaned up")
         }
-
         AppGroupUserDefaults.User.lastAttachmentCleanUpDate = Date()
     }
     
@@ -65,10 +56,7 @@ extension AttachmentCleaningWork: PersistableWork {
     static let typeIdentifier: String = "attachment_clean"
     
     var context: Data? {
-        finishedCategoriesLock.lock()
-        let categories = finishedCategories
-        finishedCategoriesLock.unlock()
-        return try? JSONEncoder.default.encode(categories)
+        try? JSONEncoder.default.encode(finishedCategories)
     }
     
     var priority: PersistedWork.Priority {

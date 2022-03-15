@@ -17,6 +17,22 @@ extension MessageItem: DeletableMessage {
     
 }
 
+/*
+ Straight execute
+ ┌───────────────┐  ┌───────────┐Completed┌────────────────┐
+ │Init(preparing)├─►│Persistence├────────►│Delete DB Record│
+ └───────────────┘  └───────────┘         └────┬───────────┘
+                                               │
+                 ┌───────────┐Execute┌─────┐   │Completed
+                 │Delete file│◄──────┤Ready│◄──┘
+                 └───────────┘       └─────┘
+ 
+ Awake from persistence
+ ┌────────────┐  ┌────────────────┐Completed┌───────────┐
+ │Awake(ready)├─►│Delete DB Record├────────►│Delete file│
+ └────────────┘  └────────────────┘         └───────────┘
+ */
+
 public final class DeleteMessageWork: Work {
     
     public enum Attachment: Codable {
@@ -64,6 +80,7 @@ public final class DeleteMessageWork: Work {
             state = .finished(.success)
         } else {
             MessageDAO.shared.delete(id: messageId, conversationId: conversationId) {
+                Logger.general.debug(category: "DeleteMessageWork", message: "\(self.messageId) Message deleted from database")
                 self.deleteFile()
                 self.state = .finished(.success)
             }
