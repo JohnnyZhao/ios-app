@@ -714,7 +714,7 @@ public final class MessageDAO: UserDatabaseDAO {
         }
     }
     
-    public func delete(id: String, conversationId: String) {
+    public func delete(id: String, conversationId: String, completion: @escaping () -> Void) {
         db.write { db in
             try Message
                 .filter(Message.column(of: .messageId) == id)
@@ -725,6 +725,9 @@ public final class MessageDAO: UserDatabaseDAO {
             try deleteFTSContent(db, messageId: id)
             try PinMessageDAO.shared.delete(messageIds: [id], conversationId: conversationId, from: db)
             try clearPinMessageContent(quoteMessageIds: [id], conversationId: conversationId, from: db)
+            db.afterNextTransactionCommit { _ in
+                completion()
+            }
         }
     }
     

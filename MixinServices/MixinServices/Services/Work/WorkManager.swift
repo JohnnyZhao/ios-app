@@ -7,7 +7,7 @@ public class WorkManager {
     let maxConcurrentWorkCount: Int
     let label: StaticString
     
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
     private let dispatchQueue: DispatchQueue
     
     private var executingWorks: Set<Work> = []

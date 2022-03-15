@@ -47,20 +47,30 @@ public final class DeleteMessageWork: Work {
         } else {
             attachment = nil
         }
-        self.init(messageId: message.messageId, conversationId: message.conversationId, attachment: attachment)
+        self.init(messageId: message.messageId, conversationId: message.conversationId, attachment: attachment, state: .preparing)
     }
     
-    public init(messageId: String, conversationId: String, attachment: Attachment?) {
+    private init(messageId: String, conversationId: String, attachment: Attachment?, state: State) {
         self.messageId = messageId
         self.conversationId = conversationId
         self.attachment = attachment
-        super.init(id: "delete-message-\(messageId)", state: .ready)
+        super.init(id: "delete-message-\(messageId)", state: state)
     }
     
-    public override func main() throws {
-        if !hasDatabaseRecordDeleted {
-            MessageDAO.shared.delete(id: messageId, conversationId: conversationId)
+    public override func start() {
+        state = .executing
+        if hasDatabaseRecordDeleted {
+            deleteFile()
+            state = .finished(.success)
+        } else {
+            MessageDAO.shared.delete(id: messageId, conversationId: conversationId) {
+                self.deleteFile()
+                self.state = .finished(.success)
+            }
         }
+    }
+    
+    private func deleteFile() {
         switch attachment {
         case let .media(category, filename):
             AttachmentContainer.removeMediaFiles(mediaUrl: filename, category: category)
@@ -112,14 +122,17 @@ extension DeleteMessageWork: PersistableWork {
         }
         self.init(messageId: context.messageId,
                   conversationId: context.conversationId,
-                  attachment: context.attachment)
+                  attachment: context.attachment,
+                  state: .ready)
     }
     
     public func persistenceDidComplete() {
         NotificationCenter.default.post(onMainThread: Self.willDeleteNotification,
                                         object: self,
                                         userInfo: [Self.messageIdUserInfoKey: messageId])
-        MessageDAO.shared.delete(id: messageId, conversationId: conversationId)
+        MessageDAO.shared.delete(id: messageId, conversationId: conversationId) {
+            self.state = .ready
+        }
         hasDatabaseRecordDeleted = true
         Logger.general.debug(category: "DeleteMessageWork", message: "\(messageId) Message deleted from database")
     }

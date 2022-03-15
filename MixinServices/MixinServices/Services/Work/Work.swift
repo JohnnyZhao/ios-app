@@ -8,7 +8,7 @@ open class Work {
     
     public let id: String
     
-    private let lock = NSLock()
+    private let lock = NSRecursiveLock()
     
     private var _state: State
     
