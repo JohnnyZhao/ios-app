@@ -110,11 +110,9 @@ extension WorkManager: WorkStateMonitor {
             assertionFailure("No way a work becomes preparing")
         case .ready:
             lock.lock()
-            if executingWorks.count < maxConcurrentWorkCount {
+            if executingWorks.count < maxConcurrentWorkCount, let pendingWorksIndex = pendingWorks.firstIndex(of: work) {
                 Logger.general.debug(category: "WorkManager", message: "[\(label)] Execute \(work) because of readiness change")
-                if let index = pendingWorks.firstIndex(of: work) {
-                    pendingWorks.remove(at: index)
-                }
+                pendingWorks.remove(at: pendingWorksIndex)
                 executingWorks.insert(work)
                 lock.unlock()
                 dispatchQueue.async(execute: work.start)
